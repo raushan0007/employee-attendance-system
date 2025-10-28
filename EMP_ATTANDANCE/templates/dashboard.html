@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block content %}
+<p>Today: {{ date.today() }}</p>
+
+  <h1>Welcome, {{ user.name }}</h1>
+
+  <section class="cards">
+    <div class="card small">
+      <h3>Today: {{ date.today().strftime('%d %b, %Y') }}</h3>
+      <p>Week off people today:</p>
+      <ul>
+        {% for w in week_off_employees %}
+          <li>{{ w.name }} ({{ w.week_off }})</li>
+        {% else %}
+          <li>None</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="card small">
+      <h3>Mark Attendance</h3>
+      <div id="attendance-controls">
+        <button onclick="mark('check_in')" class="btn">Check In</button>
+        <button onclick="mark('lunch_start')" class="btn">Start Lunch</button>
+        <button onclick="mark('lunch_end')" class="btn">End Lunch</button>
+        <button onclick="mark('check_out')" class="btn">Check Out</button>
+      </div>
+    </div>
+
+    <div class="card small">
+      <h3>Your Status</h3>
+      <div>
+        <input id="status-input" placeholder="What are you doing?" value="{{ user.current_status }}">
+        <button onclick="updateStatus()" class="btn">Update</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="table-card">
+    <h3>Today's Attendance</h3>
+    <table>
+      <thead><tr><th>Name</th><th>Check In</th><th>Lunch</th><th>Check Out</th><th>Location</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for a in today_attendance %}
+          <tr>
+            <td>{{ a.user.name }}</td>
+            <td>{{ a.check_in or '-' }}</td>
+            <td>{{ a.lunch_start or '-' }} - {{ a.lunch_end or '-' }}</td>
+            <td>{{ a.check_out or '-' }}</td>
+            <td>{{ a.location or (a.latitude ~ ',' ~ a.longitude) }}</td>
+            <td>{{ a.status or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6">No attendance records yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function getLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve({latitude: null, longitude: null});
+    navigator.geolocation.getCurrentPosition(pos => {
+      resolve({latitude: pos.coords.latitude, longitude: pos.coords.longitude});
+    }, err => resolve({latitude: null, longitude: null}), {enableHighAccuracy:true, timeout:5000});
+  });
+}
+
+async function mark(action){
+  const loc = await getLocation();
+  const res = await fetch('/mark_attendance', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({action, latitude: loc.latitude, longitude: loc.longitude})
+  });
+  const data = await res.json();
+  alert(data.message);
+  if(data.success) location.reload();
+}
+
+async function updateStatus(){
+  const status = document.getElementById('status-input').value;
+  const res = await fetch('/set_status', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status})});
+  const d = await res.json();
+  alert(d.message);
+}
+</script>
+{% endblock %}
