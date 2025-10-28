@@ -1,0 +1,706 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - AttendancePro{% endblock %}
+
+{% block extra_css %}
+<style>
+.chat-container {
+    height: 75vh;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+}
+.chat-users {
+    border-right: 1px solid #dee2e6;
+    height: 100%;
+    overflow-y: auto;
+}
+.chat-messages {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background: #f8f9fa;
+}
+.message-input {
+    border-top: 1px solid #dee2e6;
+    padding: 15px;
+    background: white;
+}
+.message {
+    margin-bottom: 15px;
+    padding: 12px 15px;
+    border-radius: 15px;
+    max-width: 70%;
+    position: relative;
+    word-wrap: break-word;
+}
+.message-sent {
+    background: #007bff;
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 5px;
+}
+.message-received {
+    background: white;
+    color: #333;
+    border: 1px solid #e9ecef;
+    border-bottom-left-radius: 5px;
+}
+.message-time {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-top: 5px;
+}
+.message-sent .message-time {
+    text-align: right;
+}
+.user-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+.user-online {
+    background: #28a745;
+}
+.user-offline {
+    background: #6c757d;
+}
+.typing-indicator {
+    padding: 10px 15px;
+    font-style: italic;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+.chat-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    padding: 15px;
+}
+.unread-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+}
+.online-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-comments me-2"></i>Team Chat
+    </h1>
+    <div class="btn-group">
+        <button class="btn btn-sm btn-outline-primary" onclick="loadUnreadCounts()">
+            <i class="fas fa-sync-alt me-1"></i>Refresh
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card chat-container">
+            <div class="card-body p-0">
+                <div class="row h-100">
+                    <!-- Users List -->
+                    <div class="col-md-4 chat-users">
+                        <div class="p-3 border-bottom bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-users me-2"></i>Team Members
+                                <span class="badge bg-primary ms-2" id="onlineCount">0 online</span>
+                            </h6>
+                        </div>
+                        <div class="list-group list-group-flush" id="usersList">
+                            {% for user in users %}
+                            <a href="#" class="list-group-item list-group-item-action user-item position-relative" 
+                               data-user-id="{{ user.id }}" 
+                               data-user-name="{{ user.name }}"
+                               data-last-seen="{{ user.last_seen.isoformat() if user.last_seen else '' }}">
+                                <div class="d-flex align-items-center">
+                                    <span class="user-status user-offline" id="status-{{ user.id }}"></span>
+                                    <div class="flex-grow-1 ms-2">
+                                        <div class="fw-bold">{{ user.name }}</div>
+                                        <small class="text-muted">{{ user.department }} • {{ user.designation }}</small>
+                                        <div class="small text-muted last-seen" id="last-seen-{{ user.id }}">
+                                            {% if user.last_seen %}
+                                                Last seen: {{ user.last_seen.strftime('%Y-%m-%d %H:%M') }}
+                                            {% else %}
+                                                Never seen
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-danger unread-badge" id="unread-{{ user.id }}" style="display: none;">0</span>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Chat Area -->
+                    <div class="col-md-8 d-flex flex-column">
+                        <div class="chat-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0" id="chat-with">
+                                    <i class="fas fa-user me-2"></i>Select a team member to start chatting
+                                </h6>
+                                <div id="typingIndicator" class="typing-indicator" style="display: none;"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Messages Container -->
+                        <div class="messages-container" id="messagesContainer">
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-comments fa-3x mb-3"></i>
+                                <h5>Welcome to Team Chat</h5>
+                                <p>Select a team member from the list to start a conversation</p>
+                            </div>
+                        </div>
+
+                        <!-- Message Input -->
+                        <div class="message-input">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="messageInput" 
+                                       placeholder="Type your message..." disabled maxlength="1000">
+                                <button class="btn btn-primary" id="sendButton" disabled>
+                                    <i class="fas fa-paper-plane"></i> Send
+                                </button>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted" id="charCount">0/1000 characters</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentChatUser = null;
+let typingTimer = null;
+const TYPING_TIMEOUT = 3000; // 3 seconds
+
+// Initialize chat when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeChat();
+    loadUnreadCounts();
+    updateOnlineStatus(); // Initial status update
+});
+
+function initializeChat() {
+    // Join chat room
+    if (typeof socket !== 'undefined') {
+        socket.emit('join_chat');
+    }
+    
+    // Set up event listeners
+    setupEventListeners();
+}
+
+function setupEventListeners() {
+    // User selection
+    document.querySelectorAll('.user-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            selectUser(this);
+        });
+    });
+
+    // Message input events
+    const messageInput = document.getElementById('messageInput');
+    messageInput.addEventListener('input', updateCharCount);
+    messageInput.addEventListener('keypress', handleKeyPress);
+    messageInput.addEventListener('input', handleTyping);
+
+    // Send button
+    document.getElementById('sendButton').addEventListener('click', sendMessage);
+}
+
+function selectUser(userElement) {
+    // Remove active class from all users
+    document.querySelectorAll('.user-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Add active class to selected user
+    userElement.classList.add('active');
+    
+    // Set current chat user
+    currentChatUser = {
+        id: parseInt(userElement.dataset.userId),
+        name: userElement.dataset.userName
+    };
+    
+    // Update UI
+    document.getElementById('chat-with').innerHTML = 
+        `<i class="fas fa-user me-2"></i>Chat with ${currentChatUser.name}`;
+    
+    // Enable message input
+    document.getElementById('messageInput').disabled = false;
+    document.getElementById('sendButton').disabled = false;
+    document.getElementById('messageInput').focus();
+    
+    // Load messages
+    loadMessages(currentChatUser.id);
+    
+    // Clear unread badge for this user
+    const unreadBadge = document.getElementById(`unread-${currentChatUser.id}`);
+    if (unreadBadge) {
+        unreadBadge.style.display = 'none';
+        unreadBadge.textContent = '0';
+    }
+    
+    // Mark messages as read
+    if (typeof socket !== 'undefined') {
+        socket.emit('mark_messages_read', { user_id: currentChatUser.id });
+    }
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+}
+
+function handleTyping() {
+    if (!currentChatUser || typeof socket === 'undefined') return;
+    
+    // Emit typing start
+    socket.emit('typing', {
+        receiver_id: currentChatUser.id,
+        is_typing: true
+    });
+    
+    // Clear previous timer
+    if (typingTimer) {
+        clearTimeout(typingTimer);
+    }
+    
+    // Set timer to stop typing indicator
+    typingTimer = setTimeout(() => {
+        socket.emit('typing', {
+            receiver_id: currentChatUser.id,
+            is_typing: false
+        });
+    }, TYPING_TIMEOUT);
+}
+
+function updateCharCount() {
+    const messageInput = document.getElementById('messageInput');
+    const charCount = document.getElementById('charCount');
+    const length = messageInput.value.length;
+    charCount.textContent = `${length}/1000 characters`;
+    
+    if (length > 900) {
+        charCount.className = 'text-warning';
+    } else if (length > 990) {
+        charCount.className = 'text-danger';
+    } else {
+        charCount.className = 'text-muted';
+    }
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('messageInput');
+    const message = messageInput.value.trim();
+    
+    if (!message || !currentChatUser) return;
+    
+    // Disable input temporarily
+    messageInput.disabled = true;
+    document.getElementById('sendButton').disabled = true;
+    
+    if (typeof socket !== 'undefined') {
+        // Emit message via SocketIO with callback
+        socket.emit('send_message', {
+            receiver_id: currentChatUser.id,
+            message: message
+        }, (response) => {
+            // Re-enable input
+            messageInput.disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            
+            if (response && response.success) {
+                // Clear input
+                messageInput.value = '';
+                updateCharCount();
+                
+                // Stop typing indicator
+                socket.emit('typing', {
+                    receiver_id: currentChatUser.id,
+                    is_typing: false
+                });
+                
+            } else {
+                // Show error
+                showAlert('Error', response?.error || 'Failed to send message', 'danger');
+            }
+        });
+    } else {
+        // Fallback: send via AJAX
+        sendMessageAjax(currentChatUser.id, message);
+    }
+}
+
+function sendMessageAjax(userId, message) {
+    fetch('/send_message', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            receiver_id: userId,
+            message: message
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Re-enable input
+        document.getElementById('messageInput').disabled = false;
+        document.getElementById('sendButton').disabled = false;
+        
+        if (data.success) {
+            document.getElementById('messageInput').value = '';
+            updateCharCount();
+            loadMessages(userId); // Reload messages to show the new one
+        } else {
+            showAlert('Error', data.error || 'Failed to send message', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error sending message:', error);
+        document.getElementById('messageInput').disabled = false;
+        document.getElementById('sendButton').disabled = false;
+        showAlert('Error', 'Failed to send message', 'danger');
+    });
+}
+
+function loadMessages(userId) {
+    fetch(`/get_messages/${userId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                displayMessages(data.messages);
+            } else {
+                showAlert('Error', 'Failed to load messages', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading messages:', error);
+            showAlert('Error', 'Failed to load messages', 'danger');
+        });
+}
+
+function displayMessages(messages) {
+    const container = document.getElementById('messagesContainer');
+    
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-comments fa-3x mb-3"></i>
+                <h5>No messages yet</h5>
+                <p>Start a conversation with ${currentChatUser.name}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let messagesHTML = '';
+    let currentDate = null;
+    
+    messages.forEach(message => {
+        const messageDate = new Date(message.timestamp).toDateString();
+        if (messageDate !== currentDate) {
+            currentDate = messageDate;
+            messagesHTML += `
+                <div class="text-center text-muted my-3">
+                    <small>${formatMessageDate(new Date(message.timestamp))}</small>
+                </div>
+            `;
+        }
+        
+        const isSent = message.sender_id === {{ session.user_id }};
+        const messageTime = new Date(message.timestamp).toLocaleTimeString([], { 
+            hour: '2-digit', minute: '2-digit'
+        });
+        
+        messagesHTML += `
+            <div class="message ${isSent ? 'message-sent' : 'message-received'}">
+                <div class="message-content">${escapeHtml(message.message)}</div>
+                <div class="message-time">
+                    ${messageTime}
+                    ${isSent ? (message.is_read ? '✓✓' : '✓') : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = messagesHTML;
+    container.scrollTop = container.scrollHeight;
+}
+
+function formatMessageDate(date) {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+        return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+        return 'Yesterday';
+    } else {
+        return date.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+}
+
+function loadUnreadCounts() {
+    fetch('/get_unread_message_count')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateUnreadBadges(data.unread_counts || {});
+                updateOnlineCount();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading unread counts:', error);
+        });
+}
+
+function updateUnreadBadges(unreadCounts) {
+    // Reset all badges first
+    document.querySelectorAll('[id^="unread-"]').forEach(badge => {
+        badge.style.display = 'none';
+        badge.textContent = '0';
+    });
+    
+    // Update badges with new counts
+    Object.keys(unreadCounts).forEach(userId => {
+        const badge = document.getElementById(`unread-${userId}`);
+        if (badge && unreadCounts[userId] > 0) {
+            badge.textContent = unreadCounts[userId];
+            badge.style.display = 'inline-block';
+        }
+    });
+}
+
+function updateOnlineStatus() {
+    const now = new Date();
+    let onlineCount = 0;
+    
+    document.querySelectorAll('.user-item').forEach(item => {
+        const userId = item.dataset.userId;
+        const lastSeen = item.dataset.lastSeen;
+        
+        if (!lastSeen) return;
+        
+        const lastSeenDate = new Date(lastSeen);
+        const diffMinutes = (now - lastSeenDate) / (1000 * 60);
+        
+        const statusElement = document.getElementById(`status-${userId}`);
+        const lastSeenElement = document.getElementById(`last-seen-${userId}`);
+        
+        if (statusElement) {
+            if (diffMinutes < 5) { // Online if seen in last 5 minutes
+                statusElement.className = 'user-status user-online';
+                onlineCount++;
+                if (lastSeenElement) {
+                    lastSeenElement.textContent = 'Online now';
+                }
+            } else {
+                statusElement.className = 'user-status user-offline';
+                if (lastSeenElement) {
+                    lastSeenElement.textContent = `Last seen: ${formatLastSeen(lastSeenDate)}`;
+                }
+            }
+        }
+    });
+    
+    // Update online count badge
+    const onlineCountElement = document.getElementById('onlineCount');
+    if (onlineCountElement) {
+        onlineCountElement.textContent = `${onlineCount} online`;
+    }
+}
+
+function formatLastSeen(date) {
+    const now = new Date();
+    const diffMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffMinutes < 1) {
+        return 'Just now';
+    } else if (diffMinutes < 60) {
+        return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+    } else if (diffMinutes < 1440) {
+        const hours = Math.floor(diffMinutes / 60);
+        return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    } else {
+        const days = Math.floor(diffMinutes / 1440);
+        return `${days} day${days === 1 ? '' : 's'} ago`;
+    }
+}
+
+function updateOnlineCount() {
+    // Count online users (status element has user-online class)
+    const onlineCount = document.querySelectorAll('.user-status.user-online').length;
+    document.getElementById('onlineCount').textContent = `${onlineCount} online`;
+}
+
+// SocketIO event handlers (if socket is available)
+if (typeof socket !== 'undefined') {
+    socket.on('receive_message', function(data) {
+        // If this message is from the current chat user, add it to the UI
+        if (currentChatUser && data.sender_id === currentChatUser.id) {
+            // Reload messages to get the updated list
+            loadMessages(currentChatUser.id);
+            
+            // Mark as read
+            socket.emit('mark_message_read', { message_id: data.id });
+        } else {
+            // Show notification for new message from other users
+            showNotification('New Message', `${data.sender_name}: ${data.message}`, 'chat');
+            
+            // Update unread badge for that user
+            const unreadBadge = document.getElementById(`unread-${data.sender_id}`);
+            if (unreadBadge) {
+                const currentCount = parseInt(unreadBadge.textContent) || 0;
+                unreadBadge.textContent = currentCount + 1;
+                unreadBadge.style.display = 'inline-block';
+                loadUnreadCounts(); // Refresh counts
+            }
+        }
+    });
+
+    socket.on('message_sent', function(data) {
+        // Message was successfully sent and saved
+        console.log('Message sent confirmed:', data);
+    });
+
+    socket.on('user_typing', function(data) {
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (currentChatUser && data.user_id === currentChatUser.id) {
+            if (data.is_typing) {
+                typingIndicator.textContent = `${data.user_name} is typing...`;
+                typingIndicator.style.display = 'block';
+            } else {
+                typingIndicator.style.display = 'none';
+            }
+        }
+    });
+
+    socket.on('user_online', function(data) {
+        // Update user status
+        const userItem = document.querySelector(`[data-user-id="${data.user_id}"]`);
+        if (userItem) {
+            userItem.dataset.lastSeen = new Date().toISOString();
+            updateOnlineStatus();
+        }
+    });
+
+    socket.on('user_offline', function(data) {
+        // Update user status
+        const userItem = document.querySelector(`[data-user-id="${data.user_id}"]`);
+        if (userItem) {
+            updateOnlineStatus();
+        }
+    });
+
+    socket.on('message_read', function(data) {
+        // Update message read status in UI if needed
+        console.log('Message read:', data);
+        if (currentChatUser && data.sender_id === currentChatUser.id) {
+            // Reload messages to update read status
+            loadMessages(currentChatUser.id);
+        }
+    });
+}
+
+// Utility functions
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showAlert(title, message, type) {
+    // Remove existing alerts first
+    const existingAlerts = document.querySelectorAll('.alert');
+    existingAlerts.forEach(alert => alert.remove());
+    
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            <strong>${title}</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    const mainElement = document.querySelector('main');
+    if (mainElement) {
+        mainElement.insertAdjacentHTML('afterbegin', alertHtml);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            const newAlert = mainElement.querySelector('.alert');
+            if (newAlert) {
+                const bsAlert = new bootstrap.Alert(newAlert);
+                bsAlert.close();
+            }
+        }, 5000);
+    }
+}
+
+function showNotification(title, message, type) {
+    // Create toast notification
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'chat' ? 'primary' : 'success'} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong><br>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.innerHTML += toastHtml;
+    
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 5000 });
+    toast.show();
+}
+
+// Update online status every minute
+setInterval(updateOnlineStatus, 60000);
+
+// Load unread counts every 30 seconds
+setInterval(loadUnreadCounts, 30000);
+</script>
+{% endblock %}

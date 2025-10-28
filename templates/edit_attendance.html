@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Attendance - AttendancePro{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-edit me-2"></i>Edit Attendance Record
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-user-clock me-2"></i>
+                    Attendance for {{ attendance.user.name }} on {{ attendance.date }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <!-- Employee Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Employee Information</strong></label>
+                            <div class="mb-2">
+                                <small class="text-muted">Name:</small>
+                                <div>{{ attendance.user.name }}</div>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted">Department:</small>
+                                <div>{{ attendance.user.department }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Attendance Summary</strong></label>
+                            <div class="mb-2">
+                                <small class="text-muted">Total Hours:</small>
+                                <div class="fw-bold text-primary">{{ "%.2f"|format(attendance.total_hours) if attendance.total_hours else '0.00' }} hours</div>
+                            </div>
+                            <div class="mb-2">
+                                <small class="text-muted">Overtime:</small>
+                                <div class="fw-bold text-warning">{{ "%.2f"|format(attendance.overtime_hours) if attendance.overtime_hours else '0.00' }} hours</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Time Editing Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Check-In Time</label>
+                                <input type="time" class="form-control" name="check_in" 
+                                       value="{{ attendance.check_in|time if attendance.check_in else '' }}"
+                                       step="60">
+                                <div class="form-text">Employee's check-in time</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Check-Out Time</label>
+                                <input type="time" class="form-control" name="check_out" 
+                                       value="{{ attendance.check_out|time if attendance.check_out else '' }}"
+                                       step="60">
+                                <div class="form-text">Employee's check-out time</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Lunch Start Time</label>
+                                <input type="time" class="form-control" name="lunch_start" 
+                                       value="{{ attendance.lunch_start|time if attendance.lunch_start else '' }}"
+                                       step="60">
+                                <div class="form-text">Start time of lunch break</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Lunch End Time</label>
+                                <input type="time" class="form-control" name="lunch_end" 
+                                       value="{{ attendance.lunch_end|time if attendance.lunch_end else '' }}"
+                                       step="60">
+                                <div class="form-text">End time of lunch break</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status and Location -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Attendance Status</label>
+                                <select class="form-select" name="status">
+                                    <option value="present" {% if attendance.status == 'present' %}selected{% endif %}>Present</option>
+                                    <option value="absent" {% if attendance.status == 'absent' %}selected{% endif %}>Absent</option>
+                                    <option value="half-day" {% if attendance.status == 'half-day' %}selected{% endif %}>Half Day</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Late Arrival</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_late" 
+                                           {% if attendance.is_late %}checked{% endif %} disabled>
+                                    <label class="form-check-label">
+                                        {% if attendance.is_late %}
+                                        <span class="text-danger">Marked as Late</span>
+                                        {% else %}
+                                        Not Late
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                <div class="form-text">Automatically determined based on check-in time</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Location Information -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label class="form-label"><strong>Location Information</strong></label>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <small class="text-muted">Location:</small>
+                                            <div>{{ attendance.location if attendance.location else 'Not recorded' }}</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="text-muted">City:</small>
+                                            <div class="fw-bold text-info">
+                                                {{ attendance.city if attendance.city else 'Unknown' }}
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="text-muted">Coordinates:</small>
+                                            <div>
+                                                {% if attendance.latitude and attendance.longitude %}
+                                                {{ attendance.latitude }}, {{ attendance.longitude }}
+                                                {% else %}
+                                                Not available
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-4">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="4" 
+                                  placeholder="Add any additional notes or comments about this attendance record...">{{ attendance.notes if attendance.notes else '' }}</textarea>
+                        <div class="form-text">Any relevant information about this attendance record</div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-times me-1"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Update Attendance Record
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Calculation Preview -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-calculator me-2"></i>Time Calculation Preview
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <small class="text-muted">Check-In</small>
+                        <div class="fw-bold" id="previewCheckIn">--:--</div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted">Lunch Duration</small>
+                        <div class="fw-bold" id="previewLunch">--:--</div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted">Check-Out</small>
+                        <div class="fw-bold" id="previewCheckOut">--:--</div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted">Total Hours</small>
+                        <div class="fw-bold text-primary" id="previewTotal">0.00 hrs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Real-time calculation preview
+function calculateTotalHours() {
+    const checkIn = document.querySelector('input[name="check_in"]').value;
+    const checkOut = document.querySelector('input[name="check_out"]').value;
+    const lunchStart = document.querySelector('input[name="lunch_start"]').value;
+    const lunchEnd = document.querySelector('input[name="lunch_end"]').value;
+
+    // Update preview display
+    document.getElementById('previewCheckIn').textContent = checkIn || '--:--';
+    document.getElementById('previewCheckOut').textContent = checkOut || '--:--';
+    
+    // Calculate lunch duration
+    if (lunchStart && lunchEnd) {
+        const start = new Date(`2000-01-01T${lunchStart}`);
+        const end = new Date(`2000-01-01T${lunchEnd}`);
+        const lunchDuration = (end - start) / (1000 * 60 * 60); // hours
+        document.getElementById('previewLunch').textContent = lunchDuration.toFixed(2) + ' hrs';
+    } else {
+        document.getElementById('previewLunch').textContent = '--:--';
+    }
+
+    // Calculate total hours
+    if (checkIn && checkOut) {
+        const start = new Date(`2000-01-01T${checkIn}`);
+        const end = new Date(`2000-01-01T${checkOut}`);
+        let totalHours = (end - start) / (1000 * 60 * 60); // hours
+        
+        // Subtract lunch duration
+        if (lunchStart && lunchEnd) {
+            const lunchStartTime = new Date(`2000-01-01T${lunchStart}`);
+            const lunchEndTime = new Date(`2000-01-01T${lunchEnd}`);
+            const lunchHours = (lunchEndTime - lunchStartTime) / (1000 * 60 * 60);
+            totalHours -= lunchHours;
+        }
+        
+        document.getElementById('previewTotal').textContent = totalHours.toFixed(2) + ' hrs';
+    } else {
+        document.getElementById('previewTotal').textContent = '0.00 hrs';
+    }
+}
+
+// Add event listeners to time inputs
+document.querySelectorAll('input[type="time"]').forEach(input => {
+    input.addEventListener('change', calculateTotalHours);
+    input.addEventListener('input', calculateTotalHours);
+});
+
+// Initialize calculation on page load
+document.addEventListener('DOMContentLoaded', calculateTotalHours);
+</script>
+{% endblock %}

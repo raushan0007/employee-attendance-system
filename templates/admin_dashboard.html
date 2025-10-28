@@ -1,0 +1,603 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - AttendancePro{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Admin Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <span class="btn btn-sm btn-outline-secondary">{{ today.strftime('%A, %B %d, %Y') }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-xl-2 col-md-4 mb-4">
+        <a href="{{ url_for('users_management') }}" class="card-link">
+            <div class="card stat-card clickable-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-white text-uppercase mb-1">Total Employees</div>
+                            <div class="h5 mb-0 font-weight-bold text-white">{{ stats.total_users }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <a href="{{ url_for('reports') }}?report_type=attendance&filter=present_today" class="card-link">
+            <div class="card stat-card bg-success clickable-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-white text-uppercase mb-1">Present Today</div>
+                            <div class="h5 mb-0 font-weight-bold text-white">{{ stats.present_today }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-check fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <a href="{{ url_for('leaves') }}" class="card-link">
+            <div class="card stat-card bg-warning clickable-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-white text-uppercase mb-1">On Leave</div>
+                            <div class="h5 mb-0 font-weight-bold text-white">{{ stats.on_leave_today }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-times fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <a href="{{ url_for('leaves') }}" class="card-link">
+            <div class="card stat-card bg-info clickable-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-white text-uppercase mb-1">Pending Leaves</div>
+                            <div class="h5 mb-0 font-weight-bold text-white">{{ stats.pending_leaves }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <a href="{{ url_for('reports') }}?report_type=attendance&filter=late_today" class="card-link">
+            <div class="card stat-card bg-danger clickable-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-white text-uppercase mb-1">Late Arrivals</div>
+                            <div class="h5 mb-0 font-weight-bold text-white">{{ stats.late_arrivals }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-running fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <a href="{{ url_for('reports') }}?report_type=attendance&filter=extra_work_today" class="card-link">
+            <div class="card stat-card bg-secondary clickable-card">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-white text-uppercase mb-1">Extra Work</div>
+                            <div class="h5 mb-0 font-weight-bold text-white">{{ stats.extra_work_today }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-business-time fa-2x text-white-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row">
+    <!-- Weekly Attendance Chart -->
+    <div class="col-lg-6 mb-4">
+        <a href="{{ url_for('reports') }}?report_type=attendance" class="card-link">
+            <div class="card clickable-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="fas fa-chart-line me-2"></i>Weekly Attendance Trend</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="weeklyChart" height="250"></canvas>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Department Distribution Chart -->
+    <div class="col-lg-6 mb-4">
+        <a href="{{ url_for('users_management') }}" class="card-link">
+            <div class="card clickable-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="fas fa-building me-2"></i>Department Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="departmentChart" height="250"></canvas>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Monthly Attendance Chart -->
+    <div class="col-lg-6 mb-4">
+        <a href="{{ url_for('reports') }}?report_type=attendance" class="card-link">
+            <div class="card clickable-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="fas fa-calendar-alt me-2"></i>Monthly Attendance Overview</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyChart" height="250"></canvas>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- City Distribution Chart -->
+    <div class="col-lg-6 mb-4">
+        <a href="{{ url_for('user_locations') }}" class="card-link">
+            <div class="card clickable-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="fas fa-map-marker-alt me-2"></i>Employee Distribution by City</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="cityChart" height="250"></canvas>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Leave Statistics Chart -->
+    <div class="col-lg-6 mb-4">
+        <a href="{{ url_for('leaves') }}" class="card-link">
+            <div class="card clickable-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="fas fa-chart-pie me-2"></i>Leave Statistics by Type</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="leaveTypeChart" height="250"></canvas>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Department-wise Today Chart -->
+    <div class="col-lg-6 mb-4">
+        <a href="{{ url_for('reports') }}?report_type=attendance&filter=department_today" class="card-link">
+            <div class="card clickable-card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0"><i class="fas fa-chart-bar me-2"></i>Today's Attendance by Department</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="deptTodayChart" height="250"></canvas>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Employee Status Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-user-clock me-2"></i>Employee Status Today</h5>
+                <button class="btn btn-sm btn-primary" onclick="refreshLocations()">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Department</th>
+                                <th>Status</th>
+                                <th>Check-In</th>
+                                <th>Location</th>
+                                <th>City</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in user_status_data %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="user-status-{% if data.attendance and data.attendance.check_in %}online{% else %}offline{% endif %}"></span>
+                                        {{ data.user.name }}
+                                        {% if data.is_working_late %}
+                                        <span class="badge bg-warning ms-2">Working Late</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ data.user.department }}</td>
+                                <td>
+                                    <span class="badge {% if data.attendance and data.attendance.status == 'present' %}bg-success{% elif data.attendance and data.attendance.status == 'half-day' %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ data.user.current_status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if data.attendance and data.attendance.check_in %}
+                                        {{ data.attendance.check_in.strftime('%H:%M') }}
+                                        {% if data.attendance.is_late %}
+                                        <span class="badge bg-danger ms-1">Late</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Not checked in</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ data.current_location }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ data.city }}</span>
+                                </td>
+                                <td>
+                                    {% if data.attendance %}
+                                    <a href="{{ url_for('edit_attendance', attendance_id=data.attendance.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Section -->
+<div class="row mt-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-history me-2"></i>Recent Attendance</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for att in recent_attendance %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ att.user.name }}</strong>
+                            <small class="text-muted d-block">{{ att.date }} - {{ att.check_in.strftime('%H:%M') if att.check_in else 'No check-in' }}</small>
+                            <small class="text-muted">Location: {{ att.city if att.city else 'Unknown' }}</small>
+                        </div>
+                        <span class="badge {% if att.status == 'present' %}bg-success{% elif att.status == 'half-day' %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ att.status }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-birthday-cake me-2"></i>Today's Birthdays</h5>
+            </div>
+            <div class="card-body">
+                {% if birthday_users %}
+                <div class="row">
+                    {% for user in birthday_users %}
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <i class="fas fa-birthday-cake fa-2x text-warning me-3"></i>
+                            <div>
+                                <strong>{{ user.name }}</strong>
+                                <div class="text-muted small">{{ user.department }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No birthdays today</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Late Arrivals Today</h5>
+            </div>
+            <div class="card-body">
+                {% if late_arrivals_today %}
+                <div class="list-group">
+                    {% for att in late_arrivals_today %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ att.user.name }}</strong>
+                                <div class="text-muted small">
+                                    Checked in at {{ att.check_in.strftime('%H:%M') }}
+                                    {% if att.city %}in {{ att.city }}{% endif %}
+                                </div>
+                            </div>
+                            <span class="badge bg-danger">Late</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No late arrivals today</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .clickable-card {
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .clickable-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .card-link {
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .card-link:hover {
+        color: inherit;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    }
+    
+    .stat-card.bg-success {
+        background: linear-gradient(135deg, #27ae60 0%, #219653 100%) !important;
+    }
+    
+    .stat-card.bg-warning {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important;
+    }
+    
+    .stat-card.bg-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+    }
+    
+    .stat-card.bg-danger {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
+    }
+    
+    .stat-card.bg-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+    }
+    
+    .user-status-online {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        background-color: #28a745;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    
+    .user-status-offline {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        background-color: #6c757d;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Chart configurations
+document.addEventListener('DOMContentLoaded', function() {
+    // Weekly Attendance Chart
+    const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+    const weeklyChart = new Chart(weeklyCtx, {
+        type: 'line',
+        data: {
+            labels: {{ week_labels|tojson }},
+            datasets: [{
+                label: 'Employees Present',
+                data: {{ stats.weekly_data|tojson }},
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Weekly Attendance Trend'
+                }
+            }
+        }
+    });
+
+    // Department Distribution Chart
+    const deptCtx = document.getElementById('departmentChart').getContext('2d');
+    const deptChart = new Chart(deptCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ stats.department_data|map(attribute='name')|list|tojson }},
+            datasets: [{
+                data: {{ stats.department_data|map(attribute='count')|list|tojson }},
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                    '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Monthly Attendance Chart
+    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+    const monthlyChart = new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ monthly_dates|tojson }},
+            datasets: [{
+                label: 'Employees Present',
+                data: {{ monthly_present|tojson }},
+                backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                borderColor: '#3498db',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Employees'
+                    }
+                }
+            }
+        }
+    });
+
+    // City Distribution Chart
+    const cityCtx = document.getElementById('cityChart').getContext('2d');
+    const cityChart = new Chart(cityCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ city_distribution|map(attribute='city')|list|tojson }},
+            datasets: [{
+                data: {{ city_distribution|map(attribute='employee_count')|list|tojson }},
+                backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Leave Type Chart
+    const leaveTypeCtx = document.getElementById('leaveTypeChart').getContext('2d');
+    const leaveLabels = Object.keys({{ leave_stats|tojson }});
+    const leaveData = Object.values({{ leave_stats|tojson }});
+    
+    const leaveTypeChart = new Chart(leaveTypeCtx, {
+        type: 'bar',
+        data: {
+            labels: leaveLabels,
+            datasets: [
+                {
+                    label: 'Approved',
+                    data: leaveData.map(item => item.approved),
+                    backgroundColor: '#2ecc71'
+                },
+                {
+                    label: 'Pending',
+                    data: leaveData.map(item => item.pending),
+                    backgroundColor: '#f39c12'
+                },
+                {
+                    label: 'Rejected',
+                    data: leaveData.map(item => item.rejected),
+                    backgroundColor: '#e74c3c'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    stacked: true
+                },
+                y: {
+                    stacked: true
+                }
+            }
+        }
+    });
+
+    // Department Today Chart
+    const deptTodayCtx = document.getElementById('deptTodayChart').getContext('2d');
+    const deptTodayChart = new Chart(deptTodayCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ dept_attendance_today|map(attribute='department')|list|tojson }},
+            datasets: [{
+                label: 'Present Today',
+                data: {{ dept_attendance_today|map(attribute='present')|list|tojson }},
+                backgroundColor: '#9b59b6'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+
+function refreshLocations() {
+    fetch('{{ url_for("user_locations") }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+}
+</script>
+{% endblock %}

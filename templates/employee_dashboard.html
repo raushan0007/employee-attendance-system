@@ -1,0 +1,615 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Dashboard - AttendancePro{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Employee Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <span class="btn btn-sm btn-outline-secondary" id="current-date">{{ today.strftime('%A, %B %d, %Y') }}</span>
+    </div>
+</div>
+
+<!-- Alert Container -->
+<div id="alert-container"></div>
+
+<!-- Welcome Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h4 class="card-title">Welcome back, {{ user.name }}! 👋</h4>
+                        <p class="card-text">Here's your attendance summary for today.</p>
+                        <div id="working-late-alert" class="alert alert-warning mt-2" style="display: {% if is_working_late %}block{% else %}none{% endif %};">
+                            <i class="fas fa-clock me-2"></i>You're working beyond your scheduled time. Don't forget to take breaks!
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="display-4" id="current-status">{{ user.current_status }}</div>
+                        <small>Current Status</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Actions and Today's Status -->
+<div class="row">
+    <!-- Attendance Actions -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-clock me-2"></i>Attendance Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success btn-lg btn-action" id="check-in-btn" 
+                            onclick="markAttendance('check_in')" 
+                            {% if attendance_today and attendance_today.check_in %}disabled{% endif %}>
+                        <i class="fas fa-sign-in-alt me-2"></i>Check In
+                    </button>
+                    
+                    <button class="btn btn-warning btn-lg btn-action" id="lunch-start-btn" 
+                            onclick="markAttendance('lunch_start')"
+                            {% if not attendance_today or not attendance_today.check_in or attendance_today.lunch_start %}disabled{% endif %}>
+                        <i class="fas fa-utensils me-2"></i>Start Lunch
+                    </button>
+                    
+                    <button class="btn btn-info btn-lg btn-action" id="lunch-end-btn" 
+                            onclick="markAttendance('lunch_end')"
+                            {% if not attendance_today or not attendance_today.lunch_start or attendance_today.lunch_end %}disabled{% endif %}>
+                        <i class="fas fa-utensils me-2"></i>End Lunch
+                    </button>
+                    
+                    <button class="btn btn-danger btn-lg btn-action" id="check-out-btn" 
+                            onclick="markAttendance('check_out')"
+                            {% if not attendance_today or not attendance_today.check_in or attendance_today.check_out %}disabled{% endif %}>
+                        <i class="fas fa-sign-out-alt me-2"></i>Check Out
+                    </button>
+                </div>
+
+                <!-- Status Update -->
+                <div class="mt-4">
+                    <label class="form-label">Update Status:</label>
+                    <div class="input-group">
+                        <select class="form-select" id="statusSelect">
+                            <option value="Available" {% if user.current_status == 'Available' %}selected{% endif %}>Available</option>
+                            <option value="In Meeting" {% if user.current_status == 'In Meeting' %}selected{% endif %}>In Meeting</option>
+                            <option value="On Break" {% if user.current_status == 'On Break' %}selected{% endif %}>On Break</option>
+                            <option value="Working Remotely" {% if user.current_status == 'Working Remotely' %}selected{% endif %}>Working Remotely</option>
+                            <option value="Busy" {% if user.current_status == 'Busy' %}selected{% endif %}>Busy</option>
+                        </select>
+                        <button class="btn btn-outline-primary" onclick="updateStatus()">Update</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Attendance Summary -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-calendar-day me-2"></i>Today's Attendance</h5>
+            </div>
+            <div class="card-body">
+                {% if attendance_today %}
+                <div class="row text-center">
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Check In</h6>
+                                <h4 class="text-success" id="check-in-time">
+                                    {{ attendance_today.check_in.strftime('%H:%M') if attendance_today.check_in else '--:--' }}
+                                </h4>
+                                <span class="badge bg-danger" id="late-badge" 
+                                      style="display: {% if attendance_today.is_late %}inline-block{% else %}none{% endif %};">
+                                    Late
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Lunch Start</h6>
+                                <h4 class="text-warning" id="lunch-start-time">
+                                    {{ attendance_today.lunch_start.strftime('%H:%M') if attendance_today.lunch_start else '--:--' }}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Lunch End</h6>
+                                <h4 class="text-info" id="lunch-end-time">
+                                    {{ attendance_today.lunch_end.strftime('%H:%M') if attendance_today.lunch_end else '--:--' }}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Check Out</h6>
+                                <h4 class="text-danger" id="check-out-time">
+                                    {{ attendance_today.check_out.strftime('%H:%M') if attendance_today.check_out else '--:--' }}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6>Total Hours Today</h6>
+                                <h3 class="text-primary" id="total-hours-today">
+                                    {{ "%.2f"|format(attendance_today.total_hours) if attendance_today.total_hours else '0.00' }} hrs
+                                </h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <h6>Location</h6>
+                                <h5 class="text-success" id="location-city">
+                                    <i class="fas fa-map-marker-alt me-2"></i>
+                                    {{ attendance_today.city if attendance_today.city else 'Unknown' }}
+                                </h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4" id="no-attendance-message">
+                    <i class="fas fa-clock fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No attendance recorded for today</h5>
+                    <p class="text-muted">Click "Check In" to start your day</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts and Statistics -->
+<div class="row">
+    <!-- Weekly Hours Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-chart-bar me-2"></i>Weekly Working Hours</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="weeklyHoursChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Attendance Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-calendar-alt me-2"></i>Monthly Attendance</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="monthlyAttendanceChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row">
+    <div class="col-xl-2 col-md-4 mb-4">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <h6>Present Days</h6>
+                <h3 class="text-white" id="stat-present">{{ present_count }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <div class="card stat-card bg-success">
+            <div class="card-body text-center">
+                <h6>Total Hours</h6>
+                <h3 class="text-white" id="stat-total-hours">{{ "%.1f"|format(total_hours) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <div class="card stat-card bg-warning">
+            <div class="card-body text-center">
+                <h6>Late Count</h6>
+                <h3 class="text-white" id="stat-late">{{ late_count }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <div class="card stat-card bg-info">
+            <div class="card-body text-center">
+                <h6>Extra Hours</h6>
+                <h3 class="text-white" id="stat-extra">{{ "%.1f"|format(extra_work_hours) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <div class="card stat-card bg-danger">
+            <div class="card-body text-center">
+                <h6>Absent Days</h6>
+                <h3 class="text-white" id="stat-absent">{{ absent_count }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-4 mb-4">
+        <div class="card stat-card bg-secondary">
+            <div class="card-body text-center">
+                <h6>Half Days</h6>
+                <h3 class="text-white" id="stat-half-day">{{ half_day_count }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-history me-2"></i>Recent Attendance</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush" id="recent-attendance-list">
+                    {% for att in recent_att %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ att.date.strftime('%b %d') }}</strong>
+                                <div class="text-muted small">
+                                    In: {{ att.check_in.strftime('%H:%M') if att.check_in else '--:--' }} | 
+                                    Out: {{ att.check_out.strftime('%H:%M') if att.check_out else '--:--' }}
+                                </div>
+                                {% if att.city %}
+                                <small class="text-info"><i class="fas fa-map-marker-alt me-1"></i>{{ att.city }}</small>
+                                {% endif %}
+                            </div>
+                            <span class="badge {% if att.status == 'present' %}bg-success{% elif att.status == 'half-day' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ att.status }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-calendar-times me-2"></i>Recent Leave Applications</h5>
+            </div>
+            <div class="card-body">
+                {% if leaves %}
+                <div class="list-group list-group-flush">
+                    {% for leave in leaves %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ leave.leave_type }}</strong>
+                                <div class="text-muted small">
+                                    {{ leave.start_date }} to {{ leave.end_date }}
+                                </div>
+                            </div>
+                            <span class="badge {% if leave.status == 'approved' %}bg-success{% elif leave.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ leave.status }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No leave applications</p>
+                {% endif %}
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('leaves') }}" class="btn btn-outline-primary btn-sm">View All Leaves</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables
+let weeklyHoursChart, monthlyAttendanceChart;
+
+function markAttendance(action) {
+    // Get the button element
+    const button = document.getElementById(`${action.replace('_', '-')}-btn`);
+    
+    if (!button) {
+        showAlert('Error!', 'Button not found', 'error');
+        return;
+    }
+    
+    // Disable the clicked button immediately for better UX
+    button.disabled = true;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+    
+    // Check if geolocation is available
+    if (!navigator.geolocation) {
+        // Mark attendance without location
+        sendAttendanceRequest(action, button, null, null, null);
+        return;
+    }
+    
+    // Get current location
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            
+            // Get city name from coordinates
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`)
+                .then(response => response.json())
+                .then(locationData => {
+                    const address = locationData.address;
+                    const city = address.city || address.town || address.village || 'Unknown';
+                    const location = `${city}, ${address.state || 'Unknown'}, ${address.country || 'Unknown'}`;
+                    
+                    // Send attendance data with location
+                    sendAttendanceRequest(action, button, latitude, longitude, location);
+                })
+                .catch(error => {
+                    console.error('Location error:', error);
+                    // Continue without location if geocoding fails
+                    sendAttendanceRequest(action, button, null, null, null);
+                });
+        },
+        function(error) {
+            console.error('Geolocation error:', error);
+            // Mark attendance without location
+            sendAttendanceRequest(action, button, null, null, null);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000, // 10 seconds
+            maximumAge: 60000 // 1 minute
+        }
+    );
+}
+
+function sendAttendanceRequest(action, button, latitude, longitude, location) {
+    // Prepare request data
+    const requestData = {
+        action: action
+    };
+    
+    // Add location data if available
+    if (latitude && longitude && location) {
+        requestData.latitude = latitude;
+        requestData.longitude = longitude;
+        requestData.location = location;
+    }
+    
+    // Send attendance data
+    fetch('{{ url_for("mark_attendance") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showAlert('Success!', data.message, 'success');
+            // Reload the page after 1 second to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('Error!', data.message, 'error');
+            // Re-enable button if failed
+            resetButton(action, button);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Error!', 'Failed to mark attendance. Please try again.', 'error');
+        // Re-enable button if error
+        resetButton(action, button);
+    });
+}
+
+function resetButton(action, button) {
+    if (!button) return;
+    
+    const buttonTexts = {
+        'check_in': '<i class="fas fa-sign-in-alt me-2"></i>Check In',
+        'lunch_start': '<i class="fas fa-utensils me-2"></i>Start Lunch',
+        'lunch_end': '<i class="fas fa-utensils me-2"></i>End Lunch',
+        'check_out': '<i class="fas fa-sign-out-alt me-2"></i>Check Out'
+    };
+    
+    button.disabled = false;
+    button.innerHTML = buttonTexts[action];
+}
+
+function updateStatus() {
+    const newStatus = document.getElementById('statusSelect').value;
+    const updateBtn = document.querySelector('button[onclick="updateStatus()"]');
+    
+    if (!updateBtn) return;
+    
+    // Show loading state
+    const originalText = updateBtn.innerHTML;
+    updateBtn.disabled = true;
+    updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Updating...';
+    
+    // Get location if available
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                sendStatusUpdate(newStatus, position.coords.latitude, position.coords.longitude, updateBtn, originalText);
+            },
+            function() {
+                sendStatusUpdate(newStatus, null, null, updateBtn, originalText);
+            }
+        );
+    } else {
+        sendStatusUpdate(newStatus, null, null, updateBtn, originalText);
+    }
+}
+
+function sendStatusUpdate(status, latitude, longitude, button, originalText) {
+    fetch('{{ url_for("set_status") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            status: status,
+            latitude: latitude,
+            longitude: longitude
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Reset button state
+        button.disabled = false;
+        button.innerHTML = originalText;
+        
+        if (data.success) {
+            showAlert('Success!', 'Status updated successfully', 'success');
+            // Reload the page after 1 second to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('Error!', 'Failed to update status', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Reset button state
+        button.disabled = false;
+        button.innerHTML = originalText;
+        showAlert('Error!', 'Failed to update status', 'error');
+    });
+}
+
+function showAlert(title, message, type) {
+    const alertContainer = document.getElementById('alert-container');
+    if (!alertContainer) return;
+    
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 
+                      type === 'warning' ? 'alert-warning' : 'alert-info';
+    
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <strong>${title}</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Add alert to the container
+    alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Auto-remove alert after 5 seconds
+    setTimeout(() => {
+        const alert = alertContainer.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 5000);
+}
+
+// Initialize charts
+document.addEventListener('DOMContentLoaded', function() {
+    // Weekly Hours Chart
+    const weeklyHoursCtx = document.getElementById('weeklyHoursChart');
+    if (weeklyHoursCtx) {
+        weeklyHoursChart = new Chart(weeklyHoursCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ week_labels|tojson }},
+                datasets: [{
+                    label: 'Working Hours',
+                    data: {{ weekly_hours|tojson }},
+                    backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                    borderColor: '#3498db',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Hours'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Monthly Attendance Chart
+    const monthlyAttendanceCtx = document.getElementById('monthlyAttendanceChart');
+    if (monthlyAttendanceCtx) {
+        monthlyAttendanceChart = new Chart(monthlyAttendanceCtx, {
+            type: 'line',
+            data: {
+                labels: {{ month_labels|tojson }},
+                datasets: [{
+                    label: 'Attendance Status',
+                    data: {{ monthly_status|tojson }},
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 1,
+                        ticks: {
+                            callback: function(value) {
+                                if (value === 1) return 'Present';
+                                if (value === 0.5) return 'Half Day';
+                                if (value === 0) return 'Absent';
+                                return '';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
